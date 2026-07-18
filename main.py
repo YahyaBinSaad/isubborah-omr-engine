@@ -1,19 +1,21 @@
 from fastapi import FastAPI, UploadFile, File, Form
+from fastapi.middleware.cors import CORSMiddleware
 import cv2
 import numpy as np
 import json
+import base64  # 1. إضافة مكتبة التشفير
 
 app = FastAPI()
-from fastapi.middleware.cors import CORSMiddleware
 
-# السماح لمنصة iSubborah بالتحدث مع الخادم
+# إعدادات الأمان للسماح لمنصة iSubborah بالاتصال
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # في المستقبل يمكنك استبدال النجمة برابط منصتك فقط لمزيد من الأمان
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 def order_points(pts):
     rect = np.zeros((4, 2), dtype="float32")
     s = pts.sum(axis=1)
@@ -52,10 +54,9 @@ def draw_perfect_circle(img, contour, color, thickness):
 @app.post("/process-paper")
 async def process_paper(
     file: UploadFile = File(...),
-    answers: str = Form(...) # هنا سيستقبل الخادم نموذج الإجابة ديناميكياً
+    answers: str = Form(...) 
 ):
     try:
-        # 1. تحويل نص JSON القادم من المتصفح إلى نموذج إجابة برمجي
         parsed_answers = json.loads(answers)
         DYNAMIC_ANSWER_KEY = {int(k): int(v) for k, v in parsed_answers.items()}
 
@@ -182,10 +183,8 @@ async def process_paper(
                     student_answer = opt_idx
                     break
             
-            # 2. استخدام النموذج الديناميكي القادم من المعلم بدلاً من الثابت
             correct_answer = DYNAMIC_ANSWER_KEY.get(q_idx)
             
-            # إذا كان المعلم قد حدد إجابة لهذا السؤال
             if correct_answer is not None:
                 if student_answer == correct_answer:
                     score += 1
@@ -196,7 +195,11 @@ async def process_paper(
                 else:
                     draw_perfect_circle(output_img, row_bubbles[correct_answer], (255, 0, 0), 2)
 
-        cv2.imwrite("graded_result.jpg", output_img)
+        # ---------------------------------------------------------
+        # 2. تحويل الصورة إلى Base64 بدلاً من حفظها محلياً
+        # ---------------------------------------------------------
+        _, buffer = cv2.imencode('.jpg', output_img)
+        img_base64 = base64.b64encode(buffer).decode('utf-8')
 
         return {
             "success": True,
@@ -204,7 +207,8 @@ async def process_paper(
             "data": {
                 "student_id": student_id,
                 "score": f"{score}",
-                "total_questions": len(DYNAMIC_ANSWER_KEY) # عدد الأسئلة التي حددها المعلم
+                "total_questions": len(DYNAMIC_ANSWER_KEY),
+                "image_base64": img_base64  # 3. إرسال الصورة للمتصفح
             }
         }
     except Exception as e:
