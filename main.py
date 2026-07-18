@@ -4,7 +4,16 @@ import numpy as np
 import json
 
 app = FastAPI()
+from fastapi.middleware.cors import CORSMiddleware
 
+# السماح لمنصة iSubborah بالتحدث مع الخادم
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # في المستقبل يمكنك استبدال النجمة برابط منصتك فقط لمزيد من الأمان
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 def order_points(pts):
     rect = np.zeros((4, 2), dtype="float32")
     s = pts.sum(axis=1)
