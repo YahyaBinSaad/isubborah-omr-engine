@@ -3,11 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 import cv2
 import numpy as np
 import json
-import base64  # 1. إضافة مكتبة التشفير
+import base64
 
 app = FastAPI()
 
-# إعدادات الأمان للسماح لمنصة iSubborah بالاتصال
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -171,6 +170,8 @@ async def process_paper(
             all_questions.append(row)
 
         score = 0
+        wrong_answers = [] # المصفوفة الجديدة لجمع الأخطاء
+
         for q_idx, row_bubbles in enumerate(all_questions):
             student_answer = None
             for opt_idx, bubble in enumerate(row_bubbles):
@@ -189,26 +190,27 @@ async def process_paper(
                 if student_answer == correct_answer:
                     score += 1
                     draw_perfect_circle(output_img, row_bubbles[student_answer], (0, 255, 0), 3)
-                elif student_answer is not None:
-                    draw_perfect_circle(output_img, row_bubbles[student_answer], (0, 0, 255), 3)
-                    draw_perfect_circle(output_img, row_bubbles[correct_answer], (255, 0, 0), 2)
                 else:
-                    draw_perfect_circle(output_img, row_bubbles[correct_answer], (255, 0, 0), 2)
+                    # إضافة رقم السؤال (نضيف 1 لأن البرمجة تبدأ من الصفر)
+                    wrong_answers.append(q_idx + 1)
+                    if student_answer is not None:
+                        draw_perfect_circle(output_img, row_bubbles[student_answer], (0, 0, 255), 3)
+                        draw_perfect_circle(output_img, row_bubbles[correct_answer], (255, 0, 0), 2)
+                    else:
+                        draw_perfect_circle(output_img, row_bubbles[correct_answer], (255, 0, 0), 2)
 
-        # ---------------------------------------------------------
-        # 2. تحويل الصورة إلى Base64 بدلاً من حفظها محلياً
-        # ---------------------------------------------------------
         _, buffer = cv2.imencode('.jpg', output_img)
         img_base64 = base64.b64encode(buffer).decode('utf-8')
 
         return {
             "success": True,
-            "message": "تم التصحيح بناءً على النموذج الديناميكي المُرسل!",
+            "message": "تم التصحيح والتحليل بنجاح!",
             "data": {
                 "student_id": student_id,
                 "score": f"{score}",
                 "total_questions": len(DYNAMIC_ANSWER_KEY),
-                "image_base64": img_base64  # 3. إرسال الصورة للمتصفح
+                "wrong_answers": wrong_answers, # إرسال الأسئلة الخاطئة للمتصفح
+                "image_base64": img_base64 
             }
         }
     except Exception as e:
