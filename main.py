@@ -1,3 +1,5 @@
+# أضف هذا السطر في أعلى الملف بعد استدعاء المكتبات
+SECRET_API_KEY = "isubborah_secret_12345"
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 import cv2
