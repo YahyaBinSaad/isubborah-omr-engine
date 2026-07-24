@@ -1,6 +1,6 @@
 # أضف هذا السطر في أعلى الملف بعد استدعاء المكتبات
 SECRET_API_KEY = "isubborah_secret_12345"
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 import cv2
 import numpy as np
@@ -54,9 +54,16 @@ def draw_perfect_circle(img, contour, color, thickness):
 
 @app.post("/process-paper")
 async def process_paper(
+    request: Request,
     file: UploadFile = File(...),
     answers: str = Form(...) 
 ):
+    # --- بداية جدار الحماية ---
+    client_key = request.headers.get('X-API-KEY')
+    if client_key != SECRET_API_KEY:
+        return {"success": False, "message": "Access Denied: Invalid API Key"}
+    # --- نهاية جدار الحماية ---
+
     try:
         parsed_answers = json.loads(answers)
         DYNAMIC_ANSWER_KEY = {int(k): int(v) for k, v in parsed_answers.items()}
